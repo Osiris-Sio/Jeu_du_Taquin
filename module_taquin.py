@@ -6,20 +6,21 @@
 Auteurs : AMEDRO Louis / CAPPONI DELY Arthur
 '''
 
-# Importation Module :
-import random
+# Module à Importer :
+import random, module_lineaire
 
 class Taquin():
     
     def __init__(self):
         '''
-        Initialise l'objet.
+        Initialise la grille du jeu du Taquin.
         '''
         self.grille = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0]
+        self.pile = module_lineaire.Pile()
 
     def __repr__(self):
         '''
-        Renvoie une chaine qui décrit la classe grille.
+        Renvoie une chaine qui décrit la classe Taquin.
         : return (str)
         '''
         return ('Une grille de Taquin')
@@ -29,18 +30,19 @@ class Taquin():
         Renvoie une chaine de caractères pour représenter la grille.
         : return (str)
         '''
-        separateur = '+----+----+----+----+\n'
-        chaine = separateur
-        i = 0
+        separateur = '+----+----+----+----+\n' #Ajoute le sép.
+        chaine = separateur #La chaine commence par le sép.
         for i in range(16) :
             chaine += '| '
             valeur = self.acc_valeur(i)
+            #Conditions de valeur dans la grille :
             if valeur == 0 :
                 chaine += '   '
             elif 1 <= valeur <= 9 :
                 chaine = chaine + ' ' + str(valeur) + ' '
             elif 10 <= valeur <= 15 :
                 chaine = chaine + str(valeur) + ' '
+            #Condition de chaque ligne :
             if i % 4 == 3 :
                 chaine = chaine + '|\n' + separateur
         return chaine
@@ -144,39 +146,27 @@ class Taquin():
         '''
         return self.grille == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0]
 
-    def deplacer(self, valeur) :
+    def deplacer(self, valeur, qui_joue = True) :
         '''
+        Auteur : Amedro Louis
         Deplace, si cela est possible, la case contenant la valeur précisée
         en paramètre (entre 1 et 15) dans la case vide. Si le déplacement n'est pas 
         possible, il ne se passe rien.
-        : param valeur (int), 0 < valeur <= 15
+        : params 
+            valeur (int), 0 < valeur <= 15
+            qui_joue (boolean), True si c'est l'utilisateur ou l'attribut melanger, False si c'est l'ordinateur (pour résoudre le taquin)
         : pas de return mais self est mofifié par effet de bord
         '''
         #Précondition :
-        assert isinstance(valeur, int) and 0 < valeur <= 15, "Le paramètre doit être un entier et sur l'intervalle ]0;15]."
+        assert isinstance(valeur, int) and 0 < valeur <= 15, "valeur doit être un entier et sur l'intervalle ]0;15]."
+        assert isinstance(qui_joue, bool), "qui_joue doit être un boolean, True si c'est l'utilisateur ou l'attribut melanger (par défaut), False si c'est l'ordinateur (pour résoudre le taquin)."
         #Code :
         indice_valeur = self.acc_indice(valeur)
-        if self.est_possible(valeur) :
-            self.mut_valeur(self.acc_indice(0) , valeur)
-            self.mut_valeur(indice_valeur , 0)
-         
-    def valeurs_deplacables(self):
-        '''
-        Renvoie une liste des valeurs des cases déplaçables.
-        : return (list)
-        
-        >>> t = Taquin()
-        >>> t.valeurs_deplacables()
-        [12, 15]
-        >>> t.deplacer(12)
-        >>> t.valeurs_deplacables()
-        [8, 11, 12]
-        '''
-        tab_valeurs_deplacables = []
-        for valeur in self.grille :
-            if valeur != 0 and self.est_possible(valeur) :
-                tab_valeurs_deplacables.append(valeur)
-        return tab_valeurs_deplacables
+        if self.est_possible(valeur) : #Si la valeur peut bouger :
+            self.mut_valeur(self.acc_indice(0) , valeur) #Mettre la valeur à la place de la valeur 0 (à l'indice 0)
+            self.mut_valeur(indice_valeur , 0) #Mettre le 0 à l'indice de la valeur
+            if qui_joue : #Si c'est l'utilisateur/melanger qui joue, alors :   
+                self.pile.empiler(valeur) #On mémorise les coups joués.
     
     def melanger(self, niveau) :
         '''
@@ -199,8 +189,105 @@ class Taquin():
                 while coup_precedent == valeur_deplacable :
                     valeur_deplacable = random.choice(self.valeurs_deplacables())
                 coup_precedent = valeur_deplacable
-                self.deplacer(valeur_deplacable)
-                         
+                self.deplacer(valeur_deplacable)  
+           
+    def valeurs_deplacables(self):
+        '''
+        Renvoie une liste des valeurs des cases déplaçables.
+        : return (list)
+        
+        >>> t = Taquin()
+        >>> t.valeurs_deplacables()
+        [12, 15]
+        >>> t.deplacer(12)
+        >>> t.valeurs_deplacables()
+        [8, 11, 12]
+        '''
+        tab_valeurs_deplacables = []
+        for valeur in self.grille :
+            if valeur != 0 and self.est_possible(valeur) :
+                tab_valeurs_deplacables.append(valeur)
+        return tab_valeurs_deplacables
+    
+    def optimiser_pile(self):
+        '''
+        Auteur : Amedro Louis
+        Modifie par effet de bord le contenu de l'attribut pile afin d'éliminer les séries de deux coups identiques consécutifs
+        dans la pile avant de le résoudre pour ne pas jouer deux fois de suite le même. Cette méthode n'est appelée qu'une seule fois.
+        : pas de return, effet de bord sur pile
+        
+        >>> taquin = Taquin()
+        >>> taquin.pile.empiler(1)
+        >>> taquin.pile.empiler(1)
+        >>> taquin.pile.empiler(2)
+        >>> taquin.pile.empiler(3)
+        >>> taquin.pile.empiler(3)
+        >>> taquin.pile.empiler(3)
+        >>> taquin.pile.empiler(4)
+        >>> print(taquin.pile)
+        4
+        3
+        3
+        3
+        2
+        1
+        1
+        _
+        >>> taquin.optimiser_pile()
+        >>> print(taquin.pile)
+        4
+        3
+        2
+        _
+        >>> taquin.pile.empiler(8)
+        >>> taquin.pile.empiler(8)
+        >>> taquin.pile.empiler(4)
+        >>> print(taquin.pile)
+        4
+        8
+        8
+        4
+        3
+        2
+        _
+        >>> taquin.optimiser_pile()
+        >>> print(taquin.pile)
+        3
+        2
+        _
+        '''
+        stock = module_lineaire.Pile()
+        for _ in range(2) : #Double vérification pour ne pas obtenir d'autre doublon(s) après la première optimisation.
+            base_doublon = False #Permet de se rappeler si la base de la pile (les deux dernières valeur à dépiler) n'est pas un doublon.
+            valeur_precedente = self.pile.depiler() #On dépile le sommet de la pile (valeur_precedente)
+            while not self.pile.est_vide() : #Tant que la pile n'est pas vide :
+                if not self.pile.est_vide() : #Si la pile n'est pas vide :
+                    valeur = self.pile.depiler() #On dépile le sommet de la pile (valeur)
+                    if valeur_precedente != valeur : #Si les deux valeurs ne sont pas les mêmes :
+                        stock.empiler(valeur_precedente) #On empile valeur_precedente dans la pile stock
+                        valeur_precedente = valeur #La valeur_precedente devient la valeur
+                    else : #Sinon (si les deux valeurs sont les mêmes)
+                        if not self.pile.est_vide() : #Si la pile n'est pas vide :
+                            valeur_precedente = self.pile.depiler() #On dépile le sommet de la pile (valeur_precedente)
+                        else : #Sinon (si la pile est vide) :
+                            base_doublon = True #Se rappeler qu'il ne faut pas mettre la valeur_precedente dans le stock.
+                else : #Sinon (si la pile est vide) :
+                    stock.empiler(valeur_precedente) #On empile valeur_precedente dans la pile stock
+            if not base_doublon : #Si la base de la pile n'est pas un doublon :
+                stock.empiler(valeur_precedente) #On empile la valeur_precedente
+            while not stock.est_vide() : #Tant que la pile stock n'est pas vide :
+                self.pile.empiler(stock.depiler()) #On empile les valeurs dépilées de la pile stock dans la pile (self.pile)
+
+    def resoudre(self) :
+        '''
+        Auteur : Amedro Louis
+        Une méthode qui permet de résoudre la taquin si l'utilisateur le demande au cour de la partie.
+        Joue les coups précedent de l'utilisateur puis résoud le taquin grâce à l'attribut pile qui empiler tous les coups depuis le début du jeux (également les coups de la méthode mélanger).
+        : pas de return, modifie l'attribut pile  
+        '''
+        if not self.pile.est_vide() :
+            self.deplacer(self.pile.depiler(), False)
+              
 ######################################################
 # Doctest :
 ######################################################
